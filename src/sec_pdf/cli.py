@@ -43,6 +43,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except httpx.HTTPStatusError as exc:
         LOG.error("SEC returned HTTP %s for %s", exc.response.status_code, exc.request.url)
+        if exc.response.status_code == 429:
+            LOG.error("SEC rate limit reached. Stopping requests; try again later.")
+        if "retry-after" in exc.response.headers:
+            LOG.error("SEC Retry-After: %s", exc.response.headers["retry-after"])
         return 1
     except httpx.RequestError as exc:
         LOG.error("SEC request failed (%s): %s", type(exc).__name__, exc)
