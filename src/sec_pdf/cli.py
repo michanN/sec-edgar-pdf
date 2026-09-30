@@ -46,6 +46,8 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     )
     if not args.contact or not args.contact.strip():
         parser.error("Set --contact or SEC_CONTACT to your name and email address")
+    if not args.contact.isascii():
+        parser.error("Contact details must use ASCII characters, for example Rene instead of René")
     return args
 
 
