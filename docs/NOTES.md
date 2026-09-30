@@ -2,13 +2,13 @@
 
 ## Filing selection
 
-### What latest means
-
-I select the newest exact `10-K` by filing date, then acceptance time if dates tie. Amendments are excluded. If the latest financial period matters more than submission order, I can switch to `reportDate` as the primary sort key.
-
 ### Company identifiers
 
 Companies are identified by SEC CIKs, using a fixed name-to-CIK mapping for the six supported companies.
+
+### What latest means
+
+I select the newest exact `10-K` by filing date, then acceptance time if dates tie. Amendments are excluded. If the latest financial period matters more than submission order, I can switch to `reportDate` as the primary sort key.
 
 ### Recent and historical filings
 
@@ -16,13 +16,25 @@ The initial API check found the latest 10-K for all six companies in `filings.re
 
 ## SEC client
 
+### Why sequential
+
+Six companies don't need concurrency. Processing one at a time keeps the flow simple. If performance becomes a problem, I can add a worker pool with a shared rate limiter later.
+
 ### Rate limiting and retries
 
 I will use PyrateLimiter for five requests per second and Stamina for bounded retries. This keeps the client small and saves time writing request handling. All sec edgar requests including assets and retries will share the same limiter.
 
 I retry network failures, 429 and server errors up to three attempts in total. Stamina handles the waiting using `Retry-After` if sec edgar sends it as seconds or a date. I set a 60-second limit so the CLI doesn’t sit waiting for ages. If the delay is longer or we cant read it, we stop.
 
+### Failure handling
+
+A company-specific failure should not stop the other companies. Keep successful PDFs, report failures, and return a nonzero exit code if the run is incomplete. SEC access restrictions still stop the batch: a final 403/429 response or HTTP error with `Retry-After` must not be bypassed by moving to the next company.
+
 ## Downloading and conversion
+
+### What to save
+
+I would prefer saving the HTML and assets for easier debugging and reuse with another renderer. It also separates downloading from conversion. But finding all the assets and managing the files takes tim, so I have decided to go with only saving the PDF and accept fetching the content again when needed.
 
 ### Renderer and interface
 
@@ -32,9 +44,8 @@ I chose Playwright as the baseline for Chromium's rendering of existing HTML and
 
 Check that the PDF opens, has pages, and contains extractable text. This doesn't prove completeness or visual quality. Later checks could cover images, key phrases, or AI-assisted review.
 
-### What to save
-
-I would prefer saving the HTML and assets for easier debugging and reuse with another renderer. It also separates downloading from conversion. But finding all the assets and managing the files takes tim, so I have decided to go with only saving the PDF and accept fetching the content again when needed.
+I manually checked some of the generated pdfs and found:
+- Goldman Sachs has a nearly blank page 2 with just a divider line. If I get time lets follow this up by investigating this further.
 
 ## Tests
 

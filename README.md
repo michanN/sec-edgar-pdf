@@ -2,10 +2,11 @@
 
 The goal is to fetch the latest SEC 10-K reports for the six companies in the [assignment](docs/TASK.md) and save them as PDFs.
 
-## Save Apple's latest 10-K as a PDF
+## Save the latest 10-K reports as PDFs
 
-The CLI finds Apple's latest exact 10-K in recent submissions and renders it with
-Playwright's Chromium. HTML, images, stylesheets, and fonts are fetched through
+The CLI processes all six companies sequentially by default, finding each company's
+latest exact 10-K in recent submissions and rendering it with Playwright's Chromium.
+HTML, images, stylesheets, and fonts are fetched through
 the same SEC client, including its rate limiter and retry policy.
 
 Install the dependencies and Chromium:
@@ -25,11 +26,14 @@ export SEC_CONTACT="Your Name your.email@example.com"
 uv run sec-pdf
 ```
 
-You can also pass contact details directly:
+Select companies by name, or pass contact details directly:
 
 ```sh
+uv run sec-pdf --companies apple netflix "Goldman Sachs"
 uv run sec-pdf --contact "Your Name your.email@example.com"
 ```
+
+Names are case-insensitive; duplicates are removed while preserving selection order.
 
 PDFs go to `output/` by default. Use `--output-dir reports` to choose another directory.
 Filenames include company, accession number, and renderer, for example
@@ -47,6 +51,9 @@ Logs show timestamped progress, the report URL, and the final save path. Add `--
 to show filing details and individual HTTP requests. Warnings and errors appear in both modes.
 Request, filing-selection, rendering, validation, or output failures return exit code `1`.
 Missing contact details or invalid arguments return exit code `2`.
+Company-specific failures let the batch continue. SEC 403/429 responses or a final
+HTTP error with `Retry-After` stop the batch. The summary lists saved, failed, and
+unattempted counts.
 
 ## Development
 

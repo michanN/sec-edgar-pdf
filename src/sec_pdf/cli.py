@@ -1,4 +1,4 @@
-"""Save Apple's latest 10-K as a PDF from the command line."""
+"""Save the latest 10-K reports as PDFs from the command line."""
 
 import argparse
 import logging
@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 
 import httpx
-from playwright.sync_api import Error as PlaywrightError
 
 from .filings import COMPANIES, latest_filing
 from .http import SecClient
@@ -17,7 +16,7 @@ LOG = logging.getLogger(__name__)
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Save Apple's latest SEC 10-K as a PDF.")
+    parser = argparse.ArgumentParser(description="Save the latest SEC 10-K reports as PDFs.")
     parser.add_argument(
         "--contact",
         default=os.getenv("SEC_CONTACT"),
@@ -29,10 +28,35 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--verbose", action="store_true", help="Show filing details and individual HTTP requests"
     )
+    company_names = {name.casefold(): name for name in COMPANIES}
+    parser.add_argument(
+        "--companies",
+        nargs="+",
+        type=str.casefold,
+        choices=list(company_names),
+        help="Companies to fetch (default: all six)",
+    )
     args = parser.parse_args(argv)
+    args.companies = (
+        [company_names[name] for name in dict.fromkeys(args.companies)]
+        if args.companies is not None
+        else list(COMPANIES)
+    )
     if not args.contact or not args.contact.strip():
         parser.error("Set --contact or SEC_CONTACT to your name and email address")
     return args
+
+
+def process_company(client: SecClient, company: str, output_dir: Path) -> None:
+    """Find and save one company's latest 10-K."""
+    LOG.debug("Submissions URL: https://data.sec.gov/submissions/CIK%s.json", COMPANIES[company])
+    filing = latest_filing(client, company)
+    LOG.debug("Latest %s 10-K filing date: %s", company, filing.filed)
+    LOG.info("Report URL: %s", filing.url)
+    slug = company.lower().replace(" ", "-")
+    output = output_dir / f"{slug}-{filing.accession}-playwright.pdf"
+    render_pdf(client, filing.url, output, converter=convert_html)
+    LOG.info("%s: saved PDF: %s", company, output.resolve())
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -45,44 +69,42 @@ def main(argv: list[str] | None = None) -> int:
     logging.getLogger("sec_pdf").setLevel(logging.DEBUG if args.verbose else logging.INFO)
     logging.getLogger("httpx").setLevel(logging.INFO if args.verbose else logging.WARNING)
 
-    company = "Apple"
     client = SecClient(args.contact.strip())
+    total = len(args.companies)
+    saved = failed = 0
     try:
-        LOG.info("Finding latest %s 10-K", company)
-        LOG.debug(
-            "Submissions URL: https://data.sec.gov/submissions/CIK%s.json", COMPANIES[company]
-        )
-        filing = latest_filing(client, company)
-        LOG.debug("Latest %s 10-K filing date: %s", filing.company, filing.filed)
-        LOG.info("Report URL: %s", filing.url)
-        output = args.output_dir / f"{company.lower()}-{filing.accession}-playwright.pdf"
-        render_pdf(client, filing.url, output, converter=convert_html)
-        LOG.info("Saved PDF: %s", output.resolve())
-        return 0
-    except httpx.HTTPStatusError as exc:
-        LOG.error("SEC returned HTTP %s for %s", exc.response.status_code, exc.request.url)
-        if exc.response.status_code == 429:
-            LOG.error("SEC rate limit reached. Stopping requests; try again later.")
-        if "retry-after" in exc.response.headers:
-            LOG.error("SEC Retry-After: %s", exc.response.headers["retry-after"])
-        return 1
-    except httpx.RequestError as exc:
-        LOG.error("SEC request failed (%s): %s", type(exc).__name__, exc)
-        return 1
-    except ValueError as exc:
-        LOG.error("Could not save Apple's latest 10-K: %s", exc)
-        return 1
-    except PlaywrightError as exc:
-        LOG.error("PDF rendering failed: %s", exc)
-        return 1
-    except OSError as exc:
-        LOG.error("Could not write PDF output: %s", exc)
-        return 1
-    except (KeyError, TypeError, IndexError) as exc:
-        LOG.error("Unexpected SEC submissions data (%s): %s", type(exc).__name__, exc)
-        return 1
+        for index, company in enumerate(args.companies, start=1):
+            LOG.info("[%d/%d] %s: finding latest 10-K", index, total, company)
+            try:
+                process_company(client, company, args.output_dir)
+                saved += 1
+            except Exception as exc:
+                failed += 1
+                LOG.error("%s: %s", company, str(exc) or type(exc).__name__)
+                LOG.debug("Failure details", exc_info=True)
+                if isinstance(exc, httpx.HTTPStatusError):
+                    response = exc.response
+                    if "retry-after" in response.headers:
+                        LOG.error("SEC Retry-After: %s", response.headers["retry-after"])
+                    if response.status_code in (403, 429) or "retry-after" in response.headers:
+                        LOG.error(
+                            "Stopping batch after SEC HTTP %d; %d companies not attempted",
+                            response.status_code,
+                            total - index,
+                        )
+                        break
     finally:
         client.close()
+
+    LOG.info(
+        "Saved %d/%d PDFs to %s. %d failed, %d not attempted.",
+        saved,
+        total,
+        args.output_dir.resolve(),
+        failed,
+        total - saved - failed,
+    )
+    return 0 if saved == total else 1
 
 
 if __name__ == "__main__":
