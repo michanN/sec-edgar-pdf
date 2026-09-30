@@ -13,7 +13,7 @@ Use Python 3.13+ and uv:
 
 - `uv sync --locked`: install dependencies from the lockfile.
 - `uv run sec-pdf --help`: display CLI usage.
-- `uv run sec-pdf`: fetch Apple's latest filing metadata using `SEC_CONTACT`.
+- `uv run sec-pdf`: save Apple's latest 10-K as a PDF using `SEC_CONTACT`.
 - `uv run pytest`: run offline unit tests.
 - `uv run ruff check src tests`: check lint rules.
 - `uv run ruff format --check src tests`: verify formatting; omit `--check` to format.
