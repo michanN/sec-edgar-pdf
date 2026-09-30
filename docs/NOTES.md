@@ -1,5 +1,13 @@
 # Notes
 
+## Scope and tradeoffs
+
+A CLI is enough to select companies and save their reports. I left the API for later so I could spend the time on finding the right filing and getting a useful PDF. Docker was also deferred until the main flow worked.
+
+Company names can be passed through `--companies`. Only the six supported names are accepted. Unknown names are rejected before any requests.
+
+I know packages such as [sec-edgar](https://github.com/sec-edgar/sec-edgar) and [EdgarTools](https://github.com/dgunning/edgartools) already handle SEC integrations. Building a small client made the task more interesting and gives me decisions to explain. For production, I would compare those packages with maintaining our own client.
+
 ## Filing selection
 
 ### Company identifiers
@@ -40,6 +48,8 @@ I would prefer saving the HTML and assets for easier debugging and reuse with an
 
 After checking submissions for the latest 10-K, I reuse its PDF if the expected file exists. This avoids downloading assets and rendering again. Use `--refresh` to regenerate it. Files are validated when saved, so reuse skips validation. This simple file-based cache could later grow into a shared cache with explicit invalidation if needed.
 
+The filename includes the company, accession number and renderer. A newer filing gets a different filename, so an older pdf will not stop it being generated.
+
 ### Renderer and interface
 
 I chose Playwright as the baseline for Chromium's rendering of existing HTML and CSS. Apple's PDF looked good in manual testing; I haven't compared it with WeasyPrint yet. The shared `Converter` signature lets me swap and test renderers while reusing validation and saving.
@@ -47,6 +57,8 @@ I chose Playwright as the baseline for Chromium's rendering of existing HTML and
 ### PDF validation
 
 Check that the PDF opens, has pages, and contains extractable text. This doesn't prove completeness or visual quality. Later checks could cover images, key phrases, or AI-assisted review.
+
+I validate a temporary PDF before replacing the final file. If conversion or validation fails, the existing PDF stays untouched.
 
 I manually checked some of the generated pdfs and found:
 - Goldman Sachs has a nearly blank page 2 with just a divider line. If I get time lets follow this up by investigating this further.
