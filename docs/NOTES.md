@@ -1,5 +1,19 @@
 # Notes
 
+## How I used AI
+
+I used GPT Astra with high reasoning in the Codex CLI. I wrote some code myself and used the LLM to discuss ideas and investigate problems together. It also wrote some of the code and most of the tests.
+
+The [session log](ai-session.jsonl) is a snapshot of that conversation.
+
+At work or for my hobby projects I'd probably start by planning and investigating with the LLM. Then I would try to involve the LLM earlier and later ie let it do more of the work (think oneshot) and evaluate with it and manually after. I usually  follow this rough structure.
+
+1. What I want and what I don't want.
+2. How to validate the result and what counts as done.
+3. When to stop and ask questions. Otherwise keep working until done.
+
+For this assignment I wanted to work in smaller steps and stay more hands-on. That gave me room to question the suggestions and understand the choices made.
+
 ## Scope and tradeoffs
 
 A CLI is enough to select companies and save their reports. I left the API for later so I could spend the time on finding the right filing and getting a useful PDF. Docker was also deferred until the main flow worked.
@@ -53,6 +67,8 @@ The filename includes the company, accession number and renderer. A newer filing
 ### Renderer and interface
 
 I chose Playwright as the baseline for Chromium's rendering of existing HTML and CSS. Apple's PDF looked good in manual testing; I haven't compared it with WeasyPrint yet. The shared `Converter` signature lets me swap and test renderers while reusing validation and saving.
+
+I left WeasyPrint out because of the time limit. The converter interface should make adding it straightforward. Adding another renderer would give me the opportunity to compare the different renders and how they perform and choose the best one.
 
 ### PDF validation
 
