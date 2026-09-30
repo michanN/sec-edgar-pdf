@@ -36,6 +36,10 @@ A company-specific failure should not stop the other companies. Keep successful 
 
 I would prefer saving the HTML and assets for easier debugging and reuse with another renderer. It also separates downloading from conversion. But finding all the assets and managing the files takes tim, so I have decided to go with only saving the PDF and accept fetching the content again when needed.
 
+### Reusing/caching
+
+After checking submissions for the latest 10-K, I reuse its PDF if the expected file exists. This avoids downloading assets and rendering again. Use `--refresh` to regenerate it. Files are validated when saved, so reuse skips validation. This simple file-based cache could later grow into a shared cache with explicit invalidation if needed.
+
 ### Renderer and interface
 
 I chose Playwright as the baseline for Chromium's rendering of existing HTML and CSS. Apple's PDF looked good in manual testing; I haven't compared it with WeasyPrint yet. The shared `Converter` signature lets me swap and test renderers while reusing validation and saving.
@@ -65,3 +69,4 @@ Run the CLI with real Chromium and fake SEC responses, without live network call
 
 - Select a filing, fetch HTML and assets through the SEC client, render and validate the PDF, and check its filename, text, and logged save path. Keep only the final PDF.
 - Fail clearly when an asset download fails, remove temporary output, and preserve any existing PDF.
+- Reuse an existing pdf without fetching the report and regenerate it with the --refresh command.

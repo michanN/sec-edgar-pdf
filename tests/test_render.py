@@ -118,6 +118,7 @@ def test_failed_asset_download_preserves_existing_pdf(
             str(tmp_path),
             "--companies",
             "apple",
+            "--refresh",
         ]
     )
 
@@ -180,9 +181,118 @@ def test_saves_pdfs_before_and_after_a_company_failure(
     ]
     assert submission_calls == [call(SUBMISSIONS_URL), call(meta_url), call(netflix_url)]
     assert "No 10-K in recent filings for Meta" in caplog.text
-    assert "Saved 2/3 PDFs" in caplog.text
+    assert "2 saved, 0 reused" in caplog.text
     assert "1 failed, 0 not attempted" in caplog.text
     close.assert_called_once()
+
+
+def test_reuses_existing_pdf_without_fetching_report(tmp_path: Path, mock_get: Mock) -> None:
+    output = tmp_path / FILENAME
+    output.write_bytes(b"previous PDF")
+
+    result = main(
+        [
+            "--contact",
+            "Test User test@example.com",
+            "--output-dir",
+            str(tmp_path),
+            "--companies",
+            "apple",
+        ]
+    )
+
+    assert result == 0
+    assert output.read_bytes() == b"previous PDF"
+    mock_get.assert_called_once_with(SUBMISSIONS_URL)
+
+
+def test_refresh_fetches_report_and_assets_and_replaces_pdf(tmp_path: Path, mock_get: Mock) -> None:
+    output = tmp_path / FILENAME
+    output.write_bytes(b"previous PDF")
+
+    result = main(
+        [
+            "--contact",
+            "Test User test@example.com",
+            "--output-dir",
+            str(tmp_path),
+            "--companies",
+            "apple",
+            "--refresh",
+        ]
+    )
+
+    assert result == 0
+    assert "Apple annual report" in PdfReader(output).pages[0].extract_text()
+    mock_get.assert_has_calls(
+        [
+            call(SUBMISSIONS_URL),
+            call(REPORT_URL),
+            call(REPORT_DIR + "report.css"),
+            call(REPORT_DIR + "logo.png"),
+        ],
+        any_order=True,
+    )
+
+
+def test_invalid_converter_output_preserves_existing_pdf(
+    tmp_path: Path, mock_get: Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    arguments = [
+        "--contact",
+        "Test User test@example.com",
+        "--output-dir",
+        str(tmp_path),
+        "--companies",
+        "apple",
+    ]
+    assert main(arguments) == 0
+    output = tmp_path / FILENAME
+    original_pdf = output.read_bytes()
+
+    def invalid_converter(client: SecClient, url: str, target: Path) -> None:
+        target.write_bytes(b"not a PDF")
+
+    monkeypatch.setattr("sec_pdf.cli.convert_html", invalid_converter)
+
+    result = main([*arguments, "--refresh"])
+
+    assert result == 1
+    assert output.read_bytes() == original_pdf
+    assert list(tmp_path.iterdir()) == [output]
+
+
+def test_older_cached_pdf_does_not_prevent_saving_latest_filing(
+    tmp_path: Path, mock_get: Mock
+) -> None:
+    old_output = tmp_path / "apple-0000320193-24-000123-playwright.pdf"
+    old_output.write_bytes(b"previous year's PDF")
+
+    result = main(
+        [
+            "--contact",
+            "Test User test@example.com",
+            "--output-dir",
+            str(tmp_path),
+            "--companies",
+            "apple",
+        ]
+    )
+
+    new_output = tmp_path / FILENAME
+    assert result == 0
+    assert set(tmp_path.iterdir()) == {old_output, new_output}
+    assert old_output.read_bytes() == b"previous year's PDF"
+    assert "Apple annual report" in PdfReader(new_output).pages[0].extract_text()
+    mock_get.assert_has_calls(
+        [
+            call(SUBMISSIONS_URL),
+            call(REPORT_URL),
+            call(REPORT_DIR + "report.css"),
+            call(REPORT_DIR + "logo.png"),
+        ],
+        any_order=True,
+    )
 
 
 def test_rejects_unreadable_pdf(tmp_path: Path) -> None:

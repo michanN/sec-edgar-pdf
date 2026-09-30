@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
+from typing import Literal
 
 import httpx
 
@@ -28,6 +29,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--verbose", action="store_true", help="Show filing details and individual HTTP requests"
     )
+    parser.add_argument("--refresh", action="store_true", help="Regenerate existing PDFs")
     company_names = {name.casefold(): name for name in COMPANIES}
     parser.add_argument(
         "--companies",
@@ -47,16 +49,24 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def process_company(client: SecClient, company: str, output_dir: Path) -> None:
-    """Find and save one company's latest 10-K."""
+def process_company(
+    client: SecClient, company: str, output_dir: Path, *, refresh: bool = False
+) -> Literal["saved", "reused"]:
+    """Find the latest 10-K and reuse its PDF unless refresh is requested."""
     LOG.debug("Submissions URL: https://data.sec.gov/submissions/CIK%s.json", COMPANIES[company])
     filing = latest_filing(client, company)
     LOG.debug("Latest %s 10-K filing date: %s", company, filing.filed)
     LOG.info("Report URL: %s", filing.url)
     slug = company.lower().replace(" ", "-")
     output = output_dir / f"{slug}-{filing.accession}-playwright.pdf"
+    if output.is_file():
+        if not refresh:
+            LOG.info("%s: reusing existing PDF: %s", company, output.resolve())
+            return "reused"
+        LOG.info("%s: refreshing existing PDF", company)
     render_pdf(client, filing.url, output, converter=convert_html)
     LOG.info("%s: saved PDF: %s", company, output.resolve())
+    return "saved"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -71,13 +81,16 @@ def main(argv: list[str] | None = None) -> int:
 
     client = SecClient(args.contact.strip())
     total = len(args.companies)
-    saved = failed = 0
+    saved = reused = failed = 0
     try:
         for index, company in enumerate(args.companies, start=1):
             LOG.info("[%d/%d] %s: finding latest 10-K", index, total, company)
             try:
-                process_company(client, company, args.output_dir)
-                saved += 1
+                outcome = process_company(client, company, args.output_dir, refresh=args.refresh)
+                if outcome == "reused":
+                    reused += 1
+                else:
+                    saved += 1
             except Exception as exc:
                 failed += 1
                 LOG.error("%s: %s", company, str(exc) or type(exc).__name__)
@@ -97,14 +110,13 @@ def main(argv: list[str] | None = None) -> int:
         client.close()
 
     LOG.info(
-        "Saved %d/%d PDFs to %s. %d failed, %d not attempted.",
+        "Finished: %d saved, %d reused, %d failed, %d not attempted.",
         saved,
-        total,
-        args.output_dir.resolve(),
+        reused,
         failed,
-        total - saved - failed,
+        total - saved - reused - failed,
     )
-    return 0 if saved == total else 1
+    return 0 if saved + reused == total else 1
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ CONTACT = "Test User test@example.com"
 @pytest.fixture
 def mock_batch(monkeypatch: pytest.MonkeyPatch) -> tuple[Mock, Mock]:
     client_factory = Mock(return_value=Mock(spec=SecClient))
-    process = Mock()
+    process = Mock(return_value="saved")
     monkeypatch.setattr("sec_pdf.cli.SecClient", client_factory)
     monkeypatch.setattr("sec_pdf.cli.process_company", process)
     return client_factory, process
@@ -44,7 +44,7 @@ def test_processes_companies_with_one_shared_client(
     assert result == 0
     client_factory.assert_called_once_with(CONTACT)
     assert process.call_args_list == [
-        call(client, company, tmp_path) for company in expected_companies
+        call(client, company, tmp_path, refresh=False) for company in expected_companies
     ]
     client.close.assert_called_once_with()
 
@@ -66,7 +66,7 @@ def test_stops_batch_after_sec_access_failure(
     request = httpx.Request("GET", "https://data.sec.gov/submissions/CIK0001326801.json")
     response = httpx.Response(status_code, headers=headers, request=request)
     failure = httpx.HTTPStatusError("SEC access failed", request=request, response=response)
-    process.side_effect = [None, failure, None]
+    process.side_effect = ["saved", failure, "saved"]
 
     with caplog.at_level("INFO", logger="sec_pdf"):
         result = main(
@@ -84,9 +84,9 @@ def test_stops_batch_after_sec_access_failure(
 
     assert result == 1
     assert process.call_args_list == [
-        call(client, "Apple", tmp_path),
-        call(client, "Meta", tmp_path),
+        call(client, "Apple", tmp_path, refresh=False),
+        call(client, "Meta", tmp_path, refresh=False),
     ]
-    assert "Saved 1/3 PDFs" in caplog.text
+    assert "1 saved, 0 reused" in caplog.text
     assert "1 failed, 1 not attempted" in caplog.text
     client.close.assert_called_once_with()

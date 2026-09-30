@@ -39,6 +39,9 @@ PDFs go to `output/` by default. Use `--output-dir reports` to choose another di
 Filenames include company, accession number, and renderer, for example
 `apple-0000320193-25-000079-playwright.pdf`.
 
+Existing PDFs are reused after checking submissions for the latest filing. Use
+`--refresh` to download and regenerate them. Logs distinguish reuse from refreshing.
+
 Only the final PDF is retained. Before saving, validation checks that it opens,
 has pages, and contains extractable text. These basic checks do not guarantee
 visual fidelity or complete report content. Failed runs remove the temporary PDF
@@ -52,7 +55,7 @@ to show filing details and individual HTTP requests. Warnings and errors appear 
 Request, filing-selection, rendering, validation, or output failures return exit code `1`.
 Missing contact details or invalid arguments return exit code `2`.
 Company-specific failures let the batch continue. SEC 403/429 responses or a final
-HTTP error with `Retry-After` stop the batch. The summary lists saved, failed, and
+HTTP error with `Retry-After` stop the batch. The summary lists saved, reused, failed, and
 unattempted counts.
 
 ## Development
