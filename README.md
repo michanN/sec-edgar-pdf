@@ -58,6 +58,37 @@ Company-specific failures let the batch continue. SEC 403/429 responses or a fin
 HTTP error with `Retry-After` stop the batch. The summary lists saved, reused, failed, and
 unattempted counts.
 
+## Run with Docker
+
+Docker includes Python, Chromium, and all dependencies. From the repository directory,
+build and run all six companies:
+
+```sh
+docker build -t quartr-sec-pdf .
+export SEC_CONTACT="Your Name your.email@example.com"
+docker run --rm --init --user "$(id -u):$(id -g)" \
+  -e SEC_CONTACT \
+  --mount "type=bind,source=$PWD,target=/workspace" \
+  quartr-sec-pdf --output-dir /workspace/output
+```
+
+The CLI creates `output/` in the mounted repository with your user's ownership.
+PDFs remain there between runs. To refresh selected companies:
+
+```sh
+docker run --rm --init --user "$(id -u):$(id -g)" \
+  -e SEC_CONTACT \
+  --mount "type=bind,source=$PWD,target=/workspace" \
+  quartr-sec-pdf --output-dir /workspace/output \
+  --companies apple "Goldman Sachs" --refresh
+```
+
+Run the offline tests in the image:
+
+```sh
+docker run --rm --init --network none --entrypoint pytest quartr-sec-pdf -q
+```
+
 ## Development
 
 Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/getting-started/installation/).
