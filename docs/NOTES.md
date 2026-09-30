@@ -5,6 +5,7 @@
 I used GPT Astra with high reasoning in the Codex CLI. I wrote some code myself and used the LLM to discuss ideas and investigate problems together. It also wrote some of the code and most of the tests.
 
 The [session log](ai-session.jsonl) is a snapshot of that conversation.
+I also used a separate agent to review the solution at the end against the task. Its [review log](ai-review-session.jsonl) is included.
 
 At work or for my hobby projects I'd probably start by planning and investigating with the LLM. Then I would try to involve the LLM earlier and later ie let it do more of the work (think oneshot) and evaluate with it and manually after. I usually  follow this rough structure.
 

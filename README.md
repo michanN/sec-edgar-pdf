@@ -1,4 +1,4 @@
-# Quartr assignment
+# Sec Edgar to PDF Converter
 
 A Python CLI that downloads the latest SEC 10-K reports for Apple, Meta, Alphabet,
 Amazon, Netflix, and Goldman Sachs and saves them as PDFs.
