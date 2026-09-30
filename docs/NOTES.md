@@ -4,7 +4,7 @@
 
 ### Recent and historical filings
 
-The initial API check found the latest 10-K for all six companies in `filings.recent`. We will search that section only and report a clear error if no exact `10-K` is found. Historical submission files are outside the scope for now but could be added as a fallback if needed.
+The initial API check found the latest 10-K for all six companies in `filings.recent`. I will search that section only and report a clear error if no exact `10-K` is found. Historical submission files are outside the scope for now but could be added as a fallback if needed.
 
 ## Tests
 
