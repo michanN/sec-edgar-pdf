@@ -43,8 +43,9 @@ and leave any previously saved PDF unchanged.
 `--contact` takes precedence over `SEC_CONTACT`. Use your own name and email for the
 SEC User-Agent. Run `uv run sec-pdf --help` for usage.
 
-Logs include timestamps, progress, and the final save path. Request, filing-selection,
-rendering, validation, or output failures return exit code `1`.
+Logs show timestamped progress, the report URL, and the final save path. Add `--verbose`
+to show filing details and individual HTTP requests. Warnings and errors appear in both modes.
+Request, filing-selection, rendering, validation, or output failures return exit code `1`.
 Missing contact details or invalid arguments return exit code `2`.
 
 ## Development

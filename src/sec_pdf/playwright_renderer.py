@@ -47,7 +47,7 @@ def convert_html(client: SecClient, url: str, output: Path) -> None:
             page = context.new_page()
             page.set_default_timeout(PAGE_TIMEOUT_MS)
             page.emulate_media(media="print")
-            LOG.info("Fetching report HTML and assets through the SEC client")
+            LOG.info("Fetching report HTML and assets")
             try:
                 page.goto(url, wait_until="load")
                 page.wait_for_function("document.fonts.status === 'loaded'")

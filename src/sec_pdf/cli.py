@@ -26,6 +26,9 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir", type=Path, default=Path("output"), help="PDF directory (default: output)"
     )
+    parser.add_argument(
+        "--verbose", action="store_true", help="Show filing details and individual HTTP requests"
+    )
     args = parser.parse_args(argv)
     if not args.contact or not args.contact.strip():
         parser.error("Set --contact or SEC_CONTACT to your name and email address")
@@ -35,17 +38,22 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_arguments(argv)
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.WARNING,
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%H:%M:%S",
     )
+    logging.getLogger("sec_pdf").setLevel(logging.DEBUG if args.verbose else logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.INFO if args.verbose else logging.WARNING)
 
     company = "Apple"
     client = SecClient(args.contact.strip())
     try:
-        LOG.info("Submissions URL: https://data.sec.gov/submissions/CIK%s.json", COMPANIES[company])
+        LOG.info("Finding latest %s 10-K", company)
+        LOG.debug(
+            "Submissions URL: https://data.sec.gov/submissions/CIK%s.json", COMPANIES[company]
+        )
         filing = latest_filing(client, company)
-        LOG.info("Latest %s 10-K filing date: %s", filing.company, filing.filed)
+        LOG.debug("Latest %s 10-K filing date: %s", filing.company, filing.filed)
         LOG.info("Report URL: %s", filing.url)
         output = args.output_dir / f"{company.lower()}-{filing.accession}-playwright.pdf"
         render_pdf(client, filing.url, output, converter=convert_html)
